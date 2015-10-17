@@ -22,7 +22,9 @@ type Connection struct {
 }
 
 type regClassEntry struct {
-	props    []string
+	props []struct {
+		name string
+	}
 	propList string
 }
 
@@ -109,7 +111,6 @@ func main() {
 		fmt.Printf("%v\n", err)
 	}
 	err = c.RegisterVClass("ORole")
-	//_, err = c.SelectVertexes("ORole", "", "", 10)
-	/*resp, err := c.Command("select classes[name='OUser'] from metadata:schema")
-	fmt.Printf("%v\n", resp)*/
+	resp, err := c.SelectVertexes("ORole", "", "", 10)
+	fmt.Printf("%v\n", resp)
 }

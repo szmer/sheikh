@@ -4,11 +4,10 @@ import (
 	"chillson"
 	"errors"
 	"fmt"
-	"strings"
 )
 
-func (c *Connection) registerClass(name string, place *map[string]regClassEntry) error {
-	resp, err := (*c).Command(fmt.Sprintf("SELECT classes[name='%s'] FROM metadata:schema", name))
+func (c *Connection) registerClass(className string, place *map[string]regClassEntry) error {
+	resp, err := (*c).Command(fmt.Sprintf("SELECT classes[name='%s'] FROM metadata:schema", className))
 	if err != nil {
 		return err
 	}
@@ -18,16 +17,20 @@ func (c *Connection) registerClass(name string, place *map[string]regClassEntry)
 		return err
 	}
 	chill = chillson.Son{sliceProps}
-	fmt.Printf("%v\n", sliceProps)
-	var propNames []string
+	var entry regClassEntry
+	entry.propList = "@RID"
 	for i, _ := range sliceProps {
-		prop, err := chill.GetStr(fmt.Sprintf("[%v][name]", i))
-		if err != nil {
-			return errors.New(fmt.Sprintf("Unable to decode properties when trying to register a class %s: %v", name, resp))
+		var prop struct {
+			name string
 		}
-		propNames = append(propNames, prop)
+		prop.name, err = chill.GetStr(fmt.Sprintf("[%v][name]", i))
+		if err != nil {
+			return errors.New(fmt.Sprintf("Unable to decode properties when trying to register a class %s: %v", className, resp))
+		}
+		entry.propList += ", " + prop.name
+		entry.props = append(entry.props, prop)
 	}
-	(*place)[name] = regClassEntry{propNames, "@RID, " + strings.Join(propNames, ", ")}
+	(*place)[className] = entry
 	return nil
 }
 
@@ -39,7 +42,7 @@ func (c *Connection) RegisterVClass(name string) error {
 	return (*c).registerClass(name, &(*c).regVClasses)
 }
 
-/*func (c *Connection) SelectVertexes(class, cond, queryParams string, limit int) ([](*Vertex), error) {
+func (c *Connection) SelectVertexes(class, cond, queryParams string, limit int) ([](*Vertex), error) {
 	regEntry, ok := (*c).regVClasses[class]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("Attempt to select vertexes of class %v, which is not registered", class))
@@ -47,26 +50,27 @@ func (c *Connection) RegisterVClass(name string) error {
 	comText := fmt.Sprintf("SELECT %s FROM %s%s%s LIMIT %v", regEntry.propList, class, " "+cond, " "+queryParams, limit)
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
-	for _, item := range res {
+	for ind := range res {
+		chill := chillson.Son{res[ind]}
 		var v Vertex
-		v.Name = forceToString(item["name"])
-		if v.Name == "" {
-			return nil, errors.New(fmt.Sprintf("Cannot parse %v as a valid Vertex name", item["name"]))
-		}
-		v.Rid = forceToString(item["RID"])
-		if v.Rid == "" {
-			return nil, errors.New(fmt.Sprintf("Cannot parse %v as a valid Vertex RID", item["RID"]))
-		}
-		v.Data = make(map[string]string)
-		for label, prop := range item {
-			if label[:1] == "@" || label == "name" || label == "RID" {
-				continue
-			}
-			v.Data[label] = forceToString(prop)
-		}
 		v.Class = class
+		v.Name, err = chill.GetStr("[name]")
+		if err == nil {
+			v.Rid, err = chill.GetStr("[RID]")
+		}
+		if err != nil {
+			return nil, err
+		}
+		props, _ := res[ind].(map[string]interface{})
+		delete(props, "name")
+		delete(props, "RID")
+		for key := range props {
+			if key[:1] == "@" {
+				delete(props, key)
+			}
+		}
+		v.props = chillson.Son{props}
 		ret = append(ret, &v)
-		fmt.Printf("%+v\n", v)
 	}
-	return nil, err
-}*/
+	return ret, err
+}
