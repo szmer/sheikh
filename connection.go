@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"strings"
 )
 
@@ -46,6 +47,7 @@ func NewConnection(serv, db, user, pass string) (c Connection) {
 }
 
 func (c *Connection) Command(text string) ([]interface{}, error) {
+	text = url.QueryEscape(text)
 	addr := fmt.Sprintf("http://%s:%s/command/%s/sql/%s", (*c).Server, (*c).Port, (*c).Database, text)
 	req, err := http.NewRequest("POST", addr, nil)
 	if err != nil {
@@ -110,7 +112,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-	err = c.RegisterVClass("ORole")
-	resp, err := c.SelectVertexes("ORole", "", "", 10)
-	fmt.Printf("%v\n", resp)
+	err = c.RegisterVClass("Obiekt")
+	vs, err := c.SelectVertexes("Obiekt", "", "", 10)
+	err = c.UpdProp(vs[0], "kolor", "sraczkowaty")
 }

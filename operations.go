@@ -54,15 +54,11 @@ func (c *Connection) SelectVertexes(class, cond, queryParams string, limit int) 
 		chill := chillson.Son{res[ind]}
 		var v Vertex
 		v.Class = class
-		v.Name, err = chill.GetStr("[name]")
-		if err == nil {
-			v.Rid, err = chill.GetStr("[RID]")
-		}
+		v.Rid, err = chill.GetStr("[RID]")
 		if err != nil {
 			return nil, err
 		}
 		props, _ := res[ind].(map[string]interface{})
-		delete(props, "name")
 		delete(props, "RID")
 		for key := range props {
 			if key[:1] == "@" {
@@ -73,4 +69,12 @@ func (c *Connection) SelectVertexes(class, cond, queryParams string, limit int) 
 		ret = append(ret, &v)
 	}
 	return ret, err
+}
+
+func (c *Connection) UpdProp(v *Vertex, prop, newval string) error {
+	comText := fmt.Sprintf("UPDATE %s SET %s = '%s' RETURN AFTER @version", v.Rid, prop, newval)
+	fmt.Printf("komenda: %q\n", comText)
+	res, err := (*c).Command(comText)
+	fmt.Printf("%v\n", res)
+	return err
 }
