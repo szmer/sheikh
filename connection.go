@@ -1,3 +1,5 @@
+// TODO: update removals of properties
+
 package main
 
 import (
@@ -97,9 +99,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-	resp, err := c.SelectEdges("lubi", 10, "", "")
-	for _, v := range resp {
+	es, err := c.SelectEdges("lubi", 10, "", "")
+	for _, v := range es {
 		fmt.Printf("%+v\n", *v)
 	}
-	fmt.Printf("błąd: %v\n", err)
+	theOne, err := es[0].From(&c)
+	fmt.Printf("uzyskana jednostka: %+v\nbłąd: %v\n", theOne, err)
 }

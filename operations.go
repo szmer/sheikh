@@ -67,8 +67,9 @@ func unpackProps(entry *doc, origEntry interface{}) (err error) {
 	return err
 }
 
-func (c *Connection) SelectEdges(class string, limit int, cond, queryParams string) ([](*Edge), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", class, " "+cond, " "+queryParams, limit)
+// target is usually a class, but also can be RID
+func (c *Connection) SelectEdges(target string, limit int, cond, queryParams string) ([](*Edge), error) {
+	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", target, " "+cond, " "+queryParams, limit)
 	res, err := (*c).Command(comText)
 	var ret [](*Edge)
 	for ind := range res {
@@ -88,8 +89,8 @@ func (c *Connection) SelectEdges(class string, limit int, cond, queryParams stri
 	return ret, err
 }
 
-func (c *Connection) SelectVertexes(class string, limit int, cond, queryParams string) ([](*Vertex), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", class, " "+cond, " "+queryParams, limit)
+func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams string) ([](*Vertex), error) {
+	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", target, " "+cond, " "+queryParams, limit)
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
 	for ind := range res {

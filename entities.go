@@ -134,3 +134,31 @@ Arguments are not checked against schema constraints, which is left to the datab
 func (v *Vertex) SetProps(a ...interface{}) error {
 	return setProps(&v.Entry.propsContainer, &v.Entry.diff, a)
 }
+
+func (e *Edge) From(c *Connection) (*Vertex, error) {
+	if e.from != nil {
+		return e.from, nil
+	}
+	vs, err := (*c).SelectVertexes(e.fromRid, 1, "", "")
+	if err != nil {
+		return nil, err
+	}
+	if len(vs) != 1 {
+		return nil, errors.New(fmt.Sprintf("Edge out vertex of RID %s cannot be found in database", e.fromRid))
+	}
+	return vs[0], nil
+}
+
+func (e *Edge) To(c *Connection) (*Vertex, error) {
+	if e.to != nil {
+		return e.to, nil
+	}
+	vs, err := (*c).SelectVertexes(e.toRid, 1, "", "")
+	if err != nil {
+		return nil, err
+	}
+	if len(vs) != 1 {
+		return nil, errors.New(fmt.Sprintf("Edge in vertex of RID %s cannot be found in database", e.toRid))
+	}
+	return vs[0], nil
+}
