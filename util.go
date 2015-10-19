@@ -2,11 +2,7 @@ package main
 
 import "encoding/json"
 
-func forceToString(thing interface{}) string {
-	strThing, ok := thing.(string)
-	if ok {
-		return strThing
-	}
+func toOdbRepr(thing interface{}) string {
 	ret, _ := json.Marshal(thing)
 	return string(ret)
 }

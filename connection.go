@@ -24,7 +24,8 @@ type Connection struct {
 
 type regClassEntry struct {
 	props []struct {
-		name string
+		name    string
+		odbType float64
 	}
 	propList string
 }
@@ -113,6 +114,8 @@ func main() {
 		fmt.Printf("%v\n", err)
 	}
 	err = c.RegisterVClass("Obiekt")
-	vs, err := c.SelectVertexes("Obiekt", "", "", 10)
-	err = c.UpdProp(vs[0], "kolor", "sraczkowaty")
+	v := NewVertex("Obiekt")
+	v.SetProp("kolor", "magenta")
+	err = c.InsertVertex(&v)
+	fmt.Printf("błąd: %v\nwierzchołek: %v\n", err, v)
 }
