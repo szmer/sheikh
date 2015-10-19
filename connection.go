@@ -1,5 +1,3 @@
-// TODO: update removals of properties
-
 package main
 
 import (

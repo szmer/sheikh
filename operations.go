@@ -4,6 +4,7 @@ import (
 	"chillson"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 func (c *Connection) DeleteEdge(rid string) error {
@@ -109,8 +110,17 @@ func (c *Connection) updateEntry(entry *doc) error {
 		return nil
 	}
 	comText := fmt.Sprintf("UPDATE %s SET", (*entry).Rid)
+	var removeList []string
 	for _, label := range (*entry).diff {
-		comText += fmt.Sprintf(" %s = %s", label, toOdbRepr((*entry).propsContainer[label]))
+		val, present := (*entry).propsContainer[label]
+		if !present {
+			removeList = append(removeList, label)
+			continue
+		}
+		comText += fmt.Sprintf(" %s = %s", label, toOdbRepr(val))
+	}
+	if len(removeList) != 0 {
+		comText += " REMOVE " + strings.Join(removeList, " ")
 	}
 	comText += " RETURN AFTER @version"
 	resp, err := (*c).Command(comText)
