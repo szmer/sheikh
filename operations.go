@@ -6,22 +6,9 @@ import (
 	"fmt"
 )
 
-/* InsertVertex inserts given vertex to the database, and assings proper RID and Version values to it.*/
-func (c *Connection) InsertVertex(v *Vertex) error {
-	comText := fmt.Sprintf("INSERT INTO %s", (*v).Class)
-	specialProps := false
-	for label, prop := range (*v).propsContainer {
-		if !specialProps {
-			comText += " SET "
-			specialProps = true
-		}
-		comText += fmt.Sprintf(" %s = %v", label, toOdbRepr(prop))
-	}
-	ret, err := (*c).Command(comText)
-	fmt.Printf("%v\n", ret)
-	chill := chillson.Son{ret}
-	(*v).Rid, err = chill.GetStr("[0][@rid]")
-	(*v).Version = 1
+func (c *Connection) DeleteEdge(rid string) error {
+	comText := fmt.Sprintf("DELETE EDGE %s", rid)
+	_, err := (*c).Command(comText)
 	return err
 }
 
@@ -31,45 +18,98 @@ func (c *Connection) DeleteVertex(rid string) error {
 	return err
 }
 
+func (c *Connection) insertEntry(entry *doc, entryComText string) error {
+	specialProps := false
+	for label, prop := range (*entry).propsContainer {
+		if !specialProps {
+			entryComText += " SET "
+			specialProps = true
+		}
+		entryComText += fmt.Sprintf(" %s = %v", label, toOdbRepr(prop))
+	}
+	ret, err := (*c).Command(entryComText)
+	chill := chillson.Son{ret}
+	(*entry).Rid, err = chill.GetStr("[0][@rid]")
+	(*entry).Version = 1
+	return err
+}
+
+/* InsertEdge inserts given edge to the database, and assings proper RID and Version values to it.*/
+func (c *Connection) InsertEdge(e *Edge) error {
+	comText := fmt.Sprintf("CREATE EDGE %s FROM %s TO %s", (*e).Entry.Class, e.fromRid, e.toRid)
+	return c.insertEntry(&e.Entry, comText)
+}
+
+/* InsertVertex inserts given vertex to the database, and assings proper RID and Version values to it.*/
+func (c *Connection) InsertVertex(v *Vertex) error {
+	comText := fmt.Sprintf("CREATE VERTEX %s", (*v).Entry.Class)
+	return c.insertEntry(&v.Entry, comText)
+}
+
+func unpackProps(entry *doc, origEntry interface{}) (err error) {
+	chill := chillson.Son{origEntry}
+	(*entry).Class, err = chill.GetStr("[@class]")
+	if err == nil {
+		(*entry).Rid, err = chill.GetStr("[@rid]")
+	}
+	if err == nil {
+		(*entry).Version, err = chill.GetInt("[@version]")
+	}
+	if err != nil {
+		return err
+	}
+	props, _ := origEntry.(map[string]interface{})
+	delete(props, "@rid") // delete duplicate properties
+	delete(props, "@version")
+	delete(props, "@class")
+	(*entry).propsContainer = props
+	(*entry).props = chillson.Son{(*entry).propsContainer}
+	return err
+}
+
+func (c *Connection) SelectEdges(class string, limit int, cond, queryParams string) ([](*Edge), error) {
+	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", class, " "+cond, " "+queryParams, limit)
+	res, err := (*c).Command(comText)
+	var ret [](*Edge)
+	for ind := range res {
+		var e Edge
+		err = unpackProps(&e.Entry, res[ind]) // TODO: break on err?
+		e.fromRid, err = e.PropStr("out")
+		if err == nil {
+			e.toRid, err = e.PropStr("in")
+		}
+		if err != nil { // serious business
+			return nil, errors.New(fmt.Sprintf("SelectEdges: edge cannot be read properly, error: %v", err))
+		}
+		delete(e.Entry.propsContainer, "out")
+		delete(e.Entry.propsContainer, "in")
+		ret = append(ret, &e)
+	}
+	return ret, err
+}
+
 func (c *Connection) SelectVertexes(class string, limit int, cond, queryParams string) ([](*Vertex), error) {
 	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", class, " "+cond, " "+queryParams, limit)
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
 	for ind := range res {
-		chill := chillson.Son{res[ind]}
 		var v Vertex
-		v.Class = class
-		v.Rid, err = chill.GetStr("[@rid]")
-		if err == nil {
-			v.Version, err = chill.GetInt("[@version]")
-		}
-		if err != nil {
-			return nil, err
-		}
-		props, _ := res[ind].(map[string]interface{})
-		delete(props, "@rid") // delete duplicate properties
-		delete(props, "@version")
-		delete(props, "@class")
-		v.propsContainer = props
-		v.props = chillson.Son{v.propsContainer}
+		err = unpackProps(&v.Entry, res[ind]) // TODO: break on err?
 		ret = append(ret, &v)
 	}
 	return ret, err
 }
 
-/* UpdateVertex updates properties of a vector which were changed with SetProp() function since the last sync with
-database. Note it silently returns when no changes to the vector were made. List of changes won't be cleared if any
-error will be encountered. */
-func (c *Connection) UpdateVertex(v *Vertex) error {
-	if v.diff == nil {
+func (c *Connection) updateEntry(entry *doc) error {
+	if (*entry).Rid == "" {
+		return errors.New("Update: entity has no associated RID, did it come from the db?")
+	}
+	if (*entry).diff == nil {
 		return nil
 	}
-	if v.Rid == "" {
-		return errors.New("UpdateVertex: it has no associated RID, did vertex come from the db?")
-	}
-	comText := fmt.Sprintf("UPDATE %s SET", v.Rid)
-	for _, label := range v.diff {
-		comText += fmt.Sprintf(" %s = %s", label, toOdbRepr(v.propsContainer[label]))
+	comText := fmt.Sprintf("UPDATE %s SET", (*entry).Rid)
+	for _, label := range (*entry).diff {
+		comText += fmt.Sprintf(" %s = %s", label, toOdbRepr((*entry).propsContainer[label]))
 	}
 	comText += " RETURN AFTER @version"
 	resp, err := (*c).Command(comText)
@@ -77,7 +117,21 @@ func (c *Connection) UpdateVertex(v *Vertex) error {
 		return err
 	}
 	chill := chillson.Son{resp}
-	v.Version, _ = chill.GetInt("[0][value]")
-	v.diff = nil
-	return nil
+	(*entry).Version, err = chill.GetInt("[0][value]")
+	(*entry).diff = nil
+	return err
+}
+
+/* UpdateEdge updates properties of an edge which were changed with SetProp() function since the last sync with
+database. Note it silently returns when no changes to the edge were made. List of changes won't be cleared if any
+error will be encountered. */
+func (c *Connection) UpdateEdge(e *Edge) error {
+	return c.updateEntry(&e.Entry)
+}
+
+/* UpdateVertex updates properties of a vertex which were changed with SetProp() function since the last sync with
+database. Note it silently returns when no changes to the vertex were made. List of changes won't be cleared if any
+error will be encountered. */
+func (c *Connection) UpdateVertex(v *Vertex) error {
+	return c.updateEntry(&v.Entry)
 }

@@ -46,6 +46,7 @@ func (c *Connection) Command(text string) ([]interface{}, error) {
 	buff := make([]byte, 10240)
 	p, err := io.ReadFull(resp.Body, buff)
 	if err != io.ErrUnexpectedEOF {
+		resp.Body.Close()
 		return nil, err
 	}
 	//TODO: how to act when buffer exceeded
@@ -70,7 +71,6 @@ func (c *Connection) Command(text string) ([]interface{}, error) {
 }
 
 func (c *Connection) Connect() error {
-	//TODO: blockout when server is down?
 	addr := fmt.Sprintf("http://%s:%s/connect/%s", (*c).Server, (*c).Port, (*c).Database)
 	req, err := http.NewRequest("GET", addr, nil)
 	if err != nil {
@@ -79,7 +79,6 @@ func (c *Connection) Connect() error {
 	req.SetBasicAuth((*c).Username, (*c).Password)
 
 	resp, err := (*c).client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
@@ -98,7 +97,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-	resp, err := c.SelectVertexes("Obiekt", 10, "", "")
+	resp, err := c.SelectEdges("lubi", 10, "", "")
 	for _, v := range resp {
 		fmt.Printf("%+v\n", *v)
 	}
