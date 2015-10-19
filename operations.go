@@ -6,46 +6,6 @@ import (
 	"fmt"
 )
 
-func (c *Connection) registerClass(className string, place *map[string]regClassEntry) error {
-	resp, err := (*c).Command(fmt.Sprintf("SELECT classes[name='%s'] FROM metadata:schema", className))
-	if err != nil {
-		return err
-	}
-	chill := chillson.Son{resp}
-	sliceProps, err := chill.GetArr("[0][classes][properties]")
-	if err != nil {
-		return err
-	}
-	chill = chillson.Son{sliceProps}
-	var entry regClassEntry
-	entry.propList = "@RID, @version"
-	for i, _ := range sliceProps {
-		var prop struct {
-			name    string
-			odbType float64
-		}
-		prop.name, err = chill.GetStr(fmt.Sprintf("[%v][name]", i))
-		if err == nil {
-			prop.odbType, err = chill.GetFloat(fmt.Sprintf("[%v][type]", i))
-		}
-		if err != nil {
-			return errors.New(fmt.Sprintf("Unable to decode properties when trying to register a class %s: %v", className, resp))
-		}
-		entry.propList += ", " + prop.name
-		entry.props = append(entry.props, prop)
-	}
-	(*place)[className] = entry
-	return nil
-}
-
-func (c *Connection) RegisterEClass(name string) error {
-	return (*c).registerClass(name, &(*c).regEClasses)
-}
-
-func (c *Connection) RegisterVClass(name string) error {
-	return (*c).registerClass(name, &(*c).regVClasses)
-}
-
 /* InsertVertex inserts given vertex to the database, and assings proper RID and Version values to it.*/
 func (c *Connection) InsertVertex(v *Vertex) error {
 	comText := fmt.Sprintf("INSERT INTO %s", (*v).Class)
@@ -65,33 +25,31 @@ func (c *Connection) InsertVertex(v *Vertex) error {
 	return err
 }
 
-func (c *Connection) SelectVertexes(class, cond, queryParams string, limit int) ([](*Vertex), error) {
-	regEntry, ok := (*c).regVClasses[class]
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("Attempt to select vertexes of class %v, which is not registered", class))
-	}
-	comText := fmt.Sprintf("SELECT %s FROM %s%s%s LIMIT %v", regEntry.propList, class, " "+cond, " "+queryParams, limit)
+func (c *Connection) DeleteVertex(rid string) error {
+	comText := fmt.Sprintf("DELETE VERTEX %s", rid)
+	_, err := (*c).Command(comText)
+	return err
+}
+
+func (c *Connection) SelectVertexes(class string, limit int, cond, queryParams string) ([](*Vertex), error) {
+	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", class, " "+cond, " "+queryParams, limit)
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
 	for ind := range res {
 		chill := chillson.Son{res[ind]}
 		var v Vertex
 		v.Class = class
-		v.Rid, err = chill.GetStr("[RID]")
+		v.Rid, err = chill.GetStr("[@rid]")
 		if err == nil {
-			v.Version, err = chill.GetInt("[version]")
+			v.Version, err = chill.GetInt("[@version]")
 		}
 		if err != nil {
 			return nil, err
 		}
 		props, _ := res[ind].(map[string]interface{})
-		delete(props, "RID")
-		delete(props, "version")
-		for key := range props {
-			if key[:1] == "@" {
-				delete(props, key)
-			}
-		}
+		delete(props, "@rid") // delete duplicate properties
+		delete(props, "@version")
+		delete(props, "@class")
 		v.propsContainer = props
 		v.props = chillson.Son{v.propsContainer}
 		ret = append(ret, &v)

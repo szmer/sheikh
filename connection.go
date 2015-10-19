@@ -17,20 +17,7 @@ type Connection struct {
 	Username, Password     string
 	Ok                     bool
 	client                 http.Client
-
-	regEClasses map[string]regClassEntry
-	regVClasses map[string]regClassEntry
 }
-
-type regClassEntry struct {
-	props []struct {
-		name    string
-		odbType float64
-	}
-	propList string
-}
-
-type Json map[string]interface{}
 
 func NewConnection(serv, db, user, pass string) (c Connection) {
 	c.Server = serv
@@ -42,8 +29,6 @@ func NewConnection(serv, db, user, pass string) (c Connection) {
 	c.Ok = false
 
 	c.client.Jar, _ = cookiejar.New(nil)
-	c.regEClasses = make(map[string]regClassEntry)
-	c.regVClasses = make(map[string]regClassEntry)
 	return
 }
 
@@ -113,9 +98,9 @@ func main() {
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-	err = c.RegisterVClass("Obiekt")
-	v := NewVertex("Obiekt")
-	v.SetProp("kolor", "magenta")
-	err = c.InsertVertex(&v)
-	fmt.Printf("błąd: %v\nwierzchołek: %v\n", err, v)
+	resp, err := c.SelectVertexes("Obiekt", 10, "", "")
+	for _, v := range resp {
+		fmt.Printf("%+v\n", *v)
+	}
+	fmt.Printf("błąd: %v\n", err)
 }
