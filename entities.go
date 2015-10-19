@@ -24,8 +24,14 @@ type doc struct {
 	props          chillson.Son
 }
 
+type vtxRel struct {
+	edgeRid string
+	edge    *Edge
+}
+
 type Vertex struct {
-	Entry doc
+	Entry   doc
+	in, out map[string]([]vtxRel)
 }
 
 type Edge struct {
@@ -34,23 +40,23 @@ type Edge struct {
 	from, to       *Vertex
 }
 
-func docInit(d *doc, className string) {
-	d.Class = className
+func docInit(d *doc) {
 	d.propsContainer = make(map[string]interface{})
 	d.props = chillson.Son{d.propsContainer}
 }
 
-/* NewEdge returns new Edge. From and to arguments should be RIDs of vertexes forming
-the edge. */
-func NewEdge(className, from, to string) (e Edge) {
-	docInit(&e.Entry, className)
+/* newEdge returns new Edge. From and to arguments should be RIDs of vertexes forming
+the edge. Edges by end user should be rather by creating relation between Vertex objects. */
+func newEdge(className, from, to string) (e Edge) {
+	docInit(&e.Entry)
 	e.fromRid, e.toRid = from, to
 	return
 }
 
-func NewVertex(className string) (v Vertex) {
-	docInit(&v.Entry, className)
-	return
+func (v Vertex) init() Vertex {
+	v.in, v.out = make(map[string][]vtxRel), make(map[string][]vtxRel)
+	docInit(&v.Entry)
+	return v
 }
 
 func (e Edge) Prop(name string) (interface{}, error) {
