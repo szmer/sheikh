@@ -90,22 +90,6 @@ func (c *Connection) SelectEdges(target string, limit int, cond, queryParams str
 	return ret, err
 }
 
-func parseRelations(relIndex *map[string][]vtxRel, origSlice interface{}, relClass string) error {
-	rels, ok := origSlice.([]interface{})
-	if !ok {
-		return errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
-	}
-	(*relIndex)[relClass] = nil // initialize
-	for _, rawEdgeRid := range rels {
-		edgeRid := rawEdgeRid.(string)
-		if !ok {
-			return errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
-		}
-		(*relIndex)[relClass] = append((*relIndex)[relClass], vtxRel{edgeRid, nil})
-	}
-	return nil
-}
-
 func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams string) ([](*Vertex), error) {
 	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", target, " "+cond, " "+queryParams, limit)
 	res, err := (*c).Command(comText)
@@ -113,24 +97,38 @@ func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams 
 	for ind := range res {
 		v := Vertex{}.init()
 		err = unpackProps(&v.Entry, res[ind]) // TODO: break on err?
+		var (                                 // variables for processing edges/relations when they're encountered
+			relClass string
+			relIndex *map[string][]vtxRel
+		)
 		for label, val := range v.Entry.propsContainer {
 			if label[:4] == "out_" && len(label) > 4 {
-				relClass := label[4:]
-				err = parseRelations(&v.out, val, relClass)
-				if err != nil { // error when parsing edges/relations
-					return ret, err
-				}
-				delete(v.Entry.propsContainer, label)
+				relClass, relIndex = label[4:], &v.out
+				goto ParseRelations
 			}
 			if label[:3] == "in_" && len(label) > 3 {
-				relClass := label[3:]
-				err = parseRelations(&v.in, val, relClass)
-				if err != nil { // error when parsing edges/relations
-					return ret, err
-				}
-				delete(v.Entry.propsContainer, label)
+				relClass, relIndex = label[3:], &v.in
+				goto ParseRelations
 			}
 			continue
+
+		ParseRelations:
+			rels, ok := val.([]interface{})
+			if !ok {
+				return ret, errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
+			}
+			(*relIndex)[relClass] = nil // initialize
+			for _, rawEdgeRid := range rels {
+				edgeRid := rawEdgeRid.(string)
+				if !ok {
+					return ret, errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
+				}
+				(*relIndex)[relClass] = append((*relIndex)[relClass], vtxRel{edgeRid, nil})
+			}
+			if err != nil { // error when parsing edges/relations
+				return ret, err
+			}
+			delete(v.Entry.propsContainer, label)
 		}
 		ret = append(ret, &v)
 	}
