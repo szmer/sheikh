@@ -4,6 +4,7 @@ import (
 	"chillson"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 /*type Entity interface {
@@ -16,6 +17,20 @@ import (
 	SetProps(...interface{}) error
 }*/
 
+type edgeDirection bool
+
+const (
+	In  edgeDirection = true
+	Out               = false
+)
+
+func (ed edgeDirection) String() string {
+	if bool(ed) {
+		return "in"
+	}
+	return "out"
+}
+
 type doc struct {
 	Class, Rid     string
 	Version        int
@@ -26,18 +41,17 @@ type doc struct {
 
 type vtxRel struct {
 	edgeRid string
-	edge    *Edge
 }
 
 type Vertex struct {
-	Entry   doc
+	Entry doc
+	// Map from edge class names to slices of RIDs.
 	in, out map[string]([]vtxRel)
 }
 
 type Edge struct {
 	Entry          doc
 	fromRid, toRid string
-	from, to       *Vertex
 }
 
 func docInit(d *doc) {
@@ -142,8 +156,8 @@ func (v *Vertex) SetProps(a ...interface{}) error {
 }
 
 func (e *Edge) From(c *Connection) (*Vertex, error) {
-	if e.from != nil {
-		return e.from, nil
+	if (*c).vertexes[e.fromRid] != nil {
+		return (*c).vertexes[e.fromRid], nil
 	}
 	vs, err := (*c).SelectVertexes(e.fromRid, 1, "", "")
 	if err != nil {
@@ -156,8 +170,8 @@ func (e *Edge) From(c *Connection) (*Vertex, error) {
 }
 
 func (e *Edge) To(c *Connection) (*Vertex, error) {
-	if e.to != nil {
-		return e.to, nil
+	if (*c).vertexes[e.toRid] != nil {
+		return (*c).vertexes[e.toRid], nil
 	}
 	vs, err := (*c).SelectVertexes(e.toRid, 1, "", "")
 	if err != nil {
@@ -167,4 +181,76 @@ func (e *Edge) To(c *Connection) (*Vertex, error) {
 		return nil, errors.New(fmt.Sprintf("Edge in vertex of RID %s cannot be found in database", e.toRid))
 	}
 	return vs[0], nil
+}
+
+func (v *Vertex) Edges(dirn edgeDirection,
+	with *Vertex,
+	className string,
+	c *Connection,
+	paramConditions ...interface{}) (ret [](*Edge), err error) {
+	var localIndex *map[string][]vtxRel
+	if dirn == In {
+		localIndex = &v.in
+	} else {
+		localIndex = &v.out
+	}
+	var aggregate relSliceAggregate
+	if className != "" {
+		aggregate = NewRelSliceAggregate((*localIndex)[className], nil)
+	} else {
+		aggregate = NewRelSliceAggregate(nil, localIndex)
+	}
+	missingRids := make([]string, 0)
+	if with == nil { // relation to any other vertex
+		for relEntry := aggregate.yield(); relEntry.edgeRid != ""; relEntry = aggregate.yield() {
+			edge := c.edges[relEntry.edgeRid]
+			if edge == nil {
+				missingRids = append(missingRids, relEntry.edgeRid)
+				continue
+			}
+			ret = append(ret, edge)
+		}
+	} else { // relation to some prescribed vertex
+		if dirn == In { // "in" relation
+			for relEntry := aggregate.yield(); relEntry.edgeRid != ""; relEntry = aggregate.yield() {
+				edge := c.edges[relEntry.edgeRid]
+				if edge == nil {
+					missingRids = append(missingRids, relEntry.edgeRid)
+					continue
+				}
+				if edge.fromRid == v.Entry.Rid {
+					ret = append(ret, edge)
+				}
+			}
+		} else { // "out" relation
+			for relEntry := aggregate.yield(); relEntry.edgeRid != ""; relEntry = aggregate.yield() {
+				edge := c.edges[relEntry.edgeRid]
+				if edge == nil {
+					missingRids = append(missingRids, relEntry.edgeRid)
+					continue
+				}
+				if edge.fromRid == v.Entry.Rid {
+					ret = append(ret, edge)
+				}
+			}
+		}
+	}
+	if len(missingRids) == 0 {
+		return ret, nil
+	}
+	queryTarget := "[" + strings.Join(missingRids, ",") + "]"
+	var queryCond string
+	if with != nil {
+		if dirn == In {
+			queryCond = "WHERE in = " + with.Entry.Rid
+		} else {
+			queryCond = "WHERE out = " + with.Entry.Rid
+		}
+	}
+	missingEdges, err := c.SelectEdges(queryTarget, 0, queryCond, "")
+	if err != nil {
+		return ret, err
+	}
+	ret = append(ret, missingEdges...)
+	return ret, nil
 }

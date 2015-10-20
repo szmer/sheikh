@@ -70,7 +70,10 @@ func unpackProps(entry *doc, origEntry interface{}) (err error) {
 
 // target is usually a class, but also can be RID
 func (c *Connection) SelectEdges(target string, limit int, cond, queryParams string) ([](*Edge), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", target, " "+cond, " "+queryParams, limit)
+	comText := fmt.Sprintf("SELECT FROM %s%s%s", target, " "+cond, " "+queryParams)
+	if limit > 1 {
+		comText += fmt.Sprintf(" LIMIT %v", limit)
+	}
 	res, err := (*c).Command(comText)
 	var ret [](*Edge)
 	for ind := range res {
@@ -85,13 +88,17 @@ func (c *Connection) SelectEdges(target string, limit int, cond, queryParams str
 		}
 		delete(e.Entry.propsContainer, "out")
 		delete(e.Entry.propsContainer, "in")
+		c.edges[e.Entry.Rid] = &e // add to the index
 		ret = append(ret, &e)
 	}
 	return ret, err
 }
 
 func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams string) ([](*Vertex), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s%s LIMIT %v", target, " "+cond, " "+queryParams, limit)
+	comText := fmt.Sprintf("SELECT FROM %s%s%s", target, " "+cond, " "+queryParams)
+	if limit > 1 {
+		comText += fmt.Sprintf(" LIMIT %v", limit)
+	}
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
 	for ind := range res {
@@ -123,13 +130,14 @@ func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams 
 				if !ok {
 					return ret, errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
 				}
-				(*relIndex)[relClass] = append((*relIndex)[relClass], vtxRel{edgeRid, nil})
+				(*relIndex)[relClass] = append((*relIndex)[relClass], vtxRel{edgeRid})
 			}
 			if err != nil { // error when parsing edges/relations
 				return ret, err
 			}
 			delete(v.Entry.propsContainer, label)
 		}
+		c.vertexes[v.Entry.Rid] = &v // add to the index
 		ret = append(ret, &v)
 	}
 	return ret, err

@@ -15,8 +15,10 @@ import (
 type Connection struct {
 	Server, Database, Port string
 	Username, Password     string
-	Ok                     bool
 	client                 http.Client
+	// Index of vertexes and edges received from the db (indexed by RIDs).
+	vertexes map[string](*Vertex)
+	edges    map[string](*Edge)
 }
 
 func NewConnection(serv, db, user, pass string) (c Connection) {
@@ -25,8 +27,10 @@ func NewConnection(serv, db, user, pass string) (c Connection) {
 	c.Username = user
 	c.Password = pass
 
+	c.vertexes = make(map[string](*Vertex))
+	c.edges = make(map[string](*Edge))
+
 	c.Port = "2480"
-	c.Ok = false
 
 	c.client.Jar, _ = cookiejar.New(nil)
 	return
@@ -97,10 +101,13 @@ func main() {
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-	es, err := c.SelectEdges("lubi", 10, "", "")
+	vs, err := c.SelectVertexes("#17:3", 0, "", "")
+	if err != nil {
+		fmt.Printf("bład: %v\n", err)
+		return
+	}
+	es, err := vs[0].Edges(Out, nil, "", &c)
 	for _, v := range es {
 		fmt.Printf("%+v\n", *v)
 	}
-	theOne, err := es[0].From(&c)
-	fmt.Printf("uzyskana jednostka: %+v\nbłąd: %v\n", theOne, err)
 }
