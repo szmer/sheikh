@@ -37,7 +37,7 @@ func (c *Connection) insertEntry(entry *doc, entryComText string) error {
 
 /* InsertEdge inserts given edge to the database, and assings proper RID and Version values to it.*/
 func (c *Connection) InsertEdge(e *Edge) error {
-	comText := fmt.Sprintf("CREATE EDGE %s FROM %s TO %s", (*e).Entry.Class, e.fromRid, e.toRid)
+	comText := fmt.Sprintf("CREATE EDGE %s FROM %s TO %s", (*e).Entry.Class, e.vertex[Out], e.vertex[In])
 	return c.insertEntry(&e.Entry, comText)
 }
 
@@ -77,11 +77,11 @@ func (c *Connection) SelectEdges(target string, limit int, cond, queryParams str
 	res, err := (*c).Command(comText)
 	var ret [](*Edge)
 	for ind := range res {
-		var e Edge
+		e := newEdge()
 		err = unpackProps(&e.Entry, res[ind]) // TODO: break on err?
-		e.fromRid, err = e.PropStr("out")
+		e.vertex[Out], err = e.PropStr("out")
 		if err == nil {
-			e.toRid, err = e.PropStr("in")
+			e.vertex[In], err = e.PropStr("in")
 		}
 		if err != nil { // serious business
 			return nil, errors.New(fmt.Sprintf("SelectEdges: edge cannot be read properly, error: %v", err))
@@ -102,19 +102,19 @@ func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams 
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
 	for ind := range res {
-		v := Vertex{}.init()
+		v := NewVertex()
 		err = unpackProps(&v.Entry, res[ind]) // TODO: break on err?
-		var (                                 // variables for processing edges/relations when they're encountered
+		var (                                 // for processing edges/relations when they're encountered
 			relClass string
-			relIndex *map[string][]vtxRel
+			relDirn  edgeDirection
 		)
 		for label, val := range v.Entry.propsContainer {
 			if label[:4] == "out_" && len(label) > 4 {
-				relClass, relIndex = label[4:], &v.out
+				relClass, relDirn = label[4:], Out
 				goto ParseRelations
 			}
 			if label[:3] == "in_" && len(label) > 3 {
-				relClass, relIndex = label[3:], &v.in
+				relClass, relDirn = label[3:], In
 				goto ParseRelations
 			}
 			continue
@@ -124,13 +124,13 @@ func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams 
 			if !ok {
 				return ret, errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
 			}
-			(*relIndex)[relClass] = nil // initialize
+			v.edges[relDirn][relClass] = nil // initialize
 			for _, rawEdgeRid := range rels {
 				edgeRid := rawEdgeRid.(string)
 				if !ok {
 					return ret, errors.New(fmt.Sprintf("SelectVertexes: Cannot process edges of type %s", relClass))
 				}
-				(*relIndex)[relClass] = append((*relIndex)[relClass], vtxRel{edgeRid})
+				v.edges[relDirn][relClass] = append(v.edges[relDirn][relClass], vtxRel{edgeRid})
 			}
 			if err != nil { // error when parsing edges/relations
 				return ret, err

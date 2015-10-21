@@ -14,9 +14,13 @@ type relSliceAggregate struct {
 	currentMapKey string
 }
 
-func NewRelSliceAggregate(currentSlice []vtxRel, masterIndex *map[string][]vtxRel) (rsa relSliceAggregate) {
-	rsa.currentSlice = &currentSlice
-	rsa.masterIndex = masterIndex
+func NewRelSliceAggregate(currentSlice []vtxRel, masterIndex map[string][]vtxRel) (rsa relSliceAggregate) {
+	if currentSlice != nil {
+		rsa.currentSlice = &currentSlice
+	} else {
+		*rsa.currentSlice = nil
+	}
+	rsa.masterIndex = &masterIndex
 	return
 }
 
@@ -29,7 +33,7 @@ func (rsa *relSliceAggregate) yield() (rel vtxRel) {
 		return
 	}
 	var loadNextIndex bool
-	if rsa.currentMapKey == "" {
+	if rsa.currentMapKey == "" { // first time
 		loadNextIndex = true
 	} else {
 		loadNextIndex = false
