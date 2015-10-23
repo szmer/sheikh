@@ -160,6 +160,14 @@ func (v *Vertex) SetProps(a ...interface{}) error {
 	return setProps(&v.Entry.propsContainer, &v.Entry.diff, a)
 }
 
+func CreateEdge(from *Vertex, className string, to *Vertex) (e Edge) {
+	e = newEdge()
+	e.Entry.Class = className
+	e.vertex[Out] = from.Entry.Rid
+	e.vertex[In] = to.Entry.Rid
+	return
+}
+
 func (e *Edge) From(c *Connection) (*Vertex, error) {
 	if (*c).vertexes[e.vertex[Out]] != nil {
 		return (*c).vertexes[e.vertex[Out]], nil
