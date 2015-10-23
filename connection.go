@@ -106,7 +106,7 @@ func main() {
 		fmt.Printf("bład: %v\n", err)
 		return
 	}
-	es, err := vs[0].Edges(Out, nil, "lubi", &c)
+	es, err := vs[0].Edges(Both, nil, "lubi", &c)
 	if err != nil {
 		fmt.Printf("błąd: %v\n", err)
 		return

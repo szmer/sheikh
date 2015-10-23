@@ -191,8 +191,17 @@ func (e *Edge) To(c *Connection) (*Vertex, error) {
 func (v *Vertex) Edges(dirn edgeDirection,
 	with *Vertex,
 	className string,
-	c *Connection,
-	paramConditions ...interface{}) (ret [](*Edge), err error) {
+	c *Connection) (ret [](*Edge), err error) {
+	// At least for now, we handle cases with "both" directions with recurency.
+	if dirn == Both {
+		in, err := v.Edges(In, with, className, c)
+		if err != nil {
+			return in, err
+		}
+		out, err := v.Edges(Out, with, className, c)
+		ret = append(in, out...)
+		return ret, err
+	}
 	var aggregate relSliceAggregate
 	if className != "" {
 		aggregate = NewRelSliceAggregate(v.edges[dirn][className], nil)

@@ -10,6 +10,7 @@ func toOdbRepr(thing interface{}) string {
 type relSliceAggregate struct {
 	masterIndex   *map[string][]vtxRel
 	currentSlice  *[]vtxRel
+	keys          []string
 	i             int
 	currentMapKey string
 }
@@ -21,6 +22,11 @@ func NewRelSliceAggregate(currentSlice []vtxRel, masterIndex map[string][]vtxRel
 		*rsa.currentSlice = nil
 	}
 	rsa.masterIndex = &masterIndex
+	if masterIndex != nil {
+		for key, _ := range masterIndex {
+			rsa.keys = append(rsa.keys, key)
+		}
+	}
 	return
 }
 
@@ -38,9 +44,10 @@ func (rsa *relSliceAggregate) yield() (rel vtxRel) {
 	} else {
 		loadNextIndex = false
 	}
-	for key, index := range *rsa.masterIndex {
+	for _, key := range rsa.keys {
+		slice := (*rsa.masterIndex)[key]
 		if loadNextIndex {
-			rsa.currentSlice = &index
+			rsa.currentSlice = &slice
 			rsa.currentMapKey = key
 			return rsa.yield()
 		}
