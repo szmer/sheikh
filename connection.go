@@ -1,4 +1,4 @@
-package main
+package gorient
 
 import (
 	"chillson"
@@ -21,9 +21,16 @@ type Connection struct {
 	edges    map[string](*Edge)
 }
 
-func NewConnection(serv, db, user, pass string) (c Connection) {
-	c.Server = serv
-	c.Database = db
+/* NewConnection returns Connection object, which should be initialized with Connect() method before
+being utilized. You have to change the port manually if you wish to:
+   c.Port = "8080"
+
+For example,
+   c := NewConnection("localhost", "GratefulDeadConcerts", "admin", "admin")
+creates a connection to example database shipped with OrientDB installation.*/
+func NewConnection(servAddr, dbName, user, pass string) (c Connection) {
+	c.Server = servAddr
+	c.Database = dbName
 	c.Username = user
 	c.Password = pass
 
@@ -36,6 +43,9 @@ func NewConnection(serv, db, user, pass string) (c Connection) {
 	return
 }
 
+/* Command is a low-level method that performs OrientDB SQL command given in the argument. It returns ["result"] array from JSON
+response from the server, which should contain records returned by the database convertable, to map[string]interface{}. First database
+error encountered is copied to the error message of the method. */
 func (c *Connection) Command(text string) ([]interface{}, error) {
 	text = url.QueryEscape(text)
 	addr := fmt.Sprintf("http://%s:%s/command/%s/sql/%s", (*c).Server, (*c).Port, (*c).Database, text)
@@ -74,6 +84,7 @@ func (c *Connection) Command(text string) ([]interface{}, error) {
 	return nil, errors.New(fmt.Sprintf("Unable to extract result from server response to command %v, response body: %v", text, respJson))
 }
 
+/* Connect method tries to connect to the OrientDB server and perform authorization. */
 func (c *Connection) Connect() error {
 	addr := fmt.Sprintf("http://%s:%s/connect/%s", (*c).Server, (*c).Port, (*c).Database)
 	req, err := http.NewRequest("GET", addr, nil)
@@ -93,25 +104,4 @@ func (c *Connection) Connect() error {
 		return errors.New("Connecting to OrientDB: connection ok, but OSESSIONID cookie not present in server response, wrong address?")
 	}
 	return err // nil if all OK
-}
-
-func main() {
-	c := NewConnection("localhost", "GratefulDeadConcerts", "admin", "admin")
-	err := c.Connect()
-	if err != nil {
-		fmt.Printf("%v\n", err)
-	}
-	vs, err := c.SelectVertexes("#17:3", 0, "", "")
-	if err != nil {
-		fmt.Printf("bład: %v\n", err)
-		return
-	}
-	es, err := vs[0].Edges(Both, nil, "lubi", &c)
-	if err != nil {
-		fmt.Printf("błąd: %v\n", err)
-		return
-	}
-	for _, v := range es {
-		fmt.Printf("%+v\n", *v)
-	}
 }

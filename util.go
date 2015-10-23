@@ -1,4 +1,4 @@
-package main
+package gorient
 
 import "encoding/json"
 
@@ -15,7 +15,7 @@ type relSliceAggregate struct {
 	currentMapKey string
 }
 
-func NewRelSliceAggregate(currentSlice []vtxRel, masterIndex map[string][]vtxRel) (rsa relSliceAggregate) {
+func newRelSliceAggregate(currentSlice []vtxRel, masterIndex map[string][]vtxRel) (rsa relSliceAggregate) {
 	if currentSlice != nil {
 		rsa.currentSlice = &currentSlice
 	} else {

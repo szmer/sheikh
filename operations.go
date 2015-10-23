@@ -1,4 +1,4 @@
-package main
+package gorient
 
 import (
 	"chillson"
@@ -7,19 +7,21 @@ import (
 	"strings"
 )
 
-func (c *Connection) DeleteEdge(rid string) error {
-	comText := fmt.Sprintf("DELETE EDGE %s", rid)
+/* DeleteEdge removes Edge(s) of requested RID(s) from the database. */
+func (c *Connection) DeleteEdges(rids ...string) error {
+	comText := fmt.Sprintf("DELETE EDGE %s", strings.Join(rids, ","))
 	_, err := (*c).Command(comText)
 	return err
 }
 
-func (c *Connection) DeleteVertex(rid string) error {
-	comText := fmt.Sprintf("DELETE VERTEX %s", rid)
+/* DeleteEdge removes Vertex(es) of requested RID(s) from the database. */
+func (c *Connection) DeleteVertexes(rids ...string) error {
+	comText := fmt.Sprintf("DELETE VERTEX %s", strings.Join(rids, ","))
 	_, err := (*c).Command(comText)
 	return err
 }
 
-func (c *Connection) insertEntry(entry *doc, entryComText string) error {
+func (c *Connection) insertEntry(entry *Doc, entryComText string) error {
 	specialProps := false
 	for label, prop := range (*entry).propsContainer {
 		if !specialProps {
@@ -47,7 +49,7 @@ func (c *Connection) InsertVertex(v *Vertex) error {
 	return c.insertEntry(&v.Entry, comText)
 }
 
-func unpackProps(entry *doc, origEntry interface{}) (err error) {
+func unpackProps(entry *Doc, origEntry interface{}) (err error) {
 	chill := chillson.Son{origEntry}
 	(*entry).Class, err = chill.GetStr("[@class]")
 	if err == nil {
@@ -68,9 +70,11 @@ func unpackProps(entry *doc, origEntry interface{}) (err error) {
 	return err
 }
 
-// target is usually a class, but also can be RID
-func (c *Connection) SelectEdges(target string, limit int, cond, queryParams string) ([](*Edge), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s%s", target, " "+cond, " "+queryParams)
+/* SelectEdges returns a slice of Edges from the database. Target is usually a class, but also can be RID. Pass zero or
+negative limit if you don't wish to specify maximum number of rows. queryParams are added verbatim to the underlying SELECT
+query; it contain e.g. a WHERE condition. */
+func (c *Connection) SelectEdges(target string, limit int, queryParams string) ([](*Edge), error) {
+	comText := fmt.Sprintf("SELECT FROM %s%s", target, queryParams)
 	if limit > 1 {
 		comText += fmt.Sprintf(" LIMIT %v", limit)
 	}
@@ -94,8 +98,11 @@ func (c *Connection) SelectEdges(target string, limit int, cond, queryParams str
 	return ret, err
 }
 
-func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams string) ([](*Vertex), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s%s", target, " "+cond, " "+queryParams)
+/* SelectEdges returns a slice of Vertexes from the database. Target is usually a class, but also can be RID. Pass zero or
+negative limit if you don't wish to specify maximum number of rows. queryParams are added verbatim to the underlying SELECT
+query; it contain e.g. a WHERE condition. */
+func (c *Connection) SelectVertexes(target string, limit int, queryParams string) ([](*Vertex), error) {
+	comText := fmt.Sprintf("SELECT FROM %s%s", target, " "+queryParams)
 	if limit > 1 {
 		comText += fmt.Sprintf(" LIMIT %v", limit)
 	}
@@ -106,7 +113,7 @@ func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams 
 		err = unpackProps(&v.Entry, res[ind]) // TODO: break on err?
 		var (                                 // for processing edges/relations when they're encountered
 			relClass string
-			relDirn  edgeDirection
+			relDirn  EdgeDirection
 		)
 		for label, val := range v.Entry.propsContainer {
 			if label[:4] == "out_" && len(label) > 4 {
@@ -143,7 +150,7 @@ func (c *Connection) SelectVertexes(target string, limit int, cond, queryParams 
 	return ret, err
 }
 
-func (c *Connection) updateEntry(entry *doc) error {
+func (c *Connection) updateEntry(entry *Doc) error {
 	if (*entry).Rid == "" {
 		return errors.New("Update: entity has no associated RID, did it come from the db?")
 	}

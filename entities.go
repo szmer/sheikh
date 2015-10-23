@@ -1,4 +1,4 @@
-package main
+package gorient
 
 import (
 	"chillson"
@@ -17,15 +17,16 @@ import (
 	SetProps(...interface{}) error
 }*/
 
-type edgeDirection byte
+/* EdgeDirection can be gorient.In our gorient.Out; gorient.Both matches... both. */
+type EdgeDirection byte
 
 const (
-	In edgeDirection = iota
+	In EdgeDirection = iota
 	Out
 	Both
 )
 
-func (ed edgeDirection) String() string {
+func (ed EdgeDirection) String() string {
 	if ed == In {
 		return "in"
 	}
@@ -35,9 +36,10 @@ func (ed edgeDirection) String() string {
 	return "both"
 }
 
-type doc struct {
-	Class, Rid     string
-	Version        int
+/* Type Doc contains common object logic of Vertexes and Edges. */
+type Doc struct {
+	Class, Rid     string   // RID should not be specified for the local objects, not uploaded to the db
+	Version        int      // version of the object stored in the database
 	diff           []string // changes since the last update to/from database
 	propsContainer map[string]interface{}
 	props          chillson.Son
@@ -47,53 +49,72 @@ type vtxRel struct {
 	edgeRid string
 }
 
+// Type Vertex represents OrientDB vertexes (descendants of builtin V class).
 type Vertex struct {
-	Entry doc
+	Entry Doc
 	// Maps from edge class names to slices of RIDs.
-	edges map[edgeDirection](map[string]([]vtxRel))
+	edges map[EdgeDirection](map[string]([]vtxRel))
 }
 
+// Type Edge represents OrientDB vertexes (descendants of builtin E class).
 type Edge struct {
-	Entry  doc
-	vertex map[edgeDirection]string
+	Entry  Doc
+	vertex map[EdgeDirection]string
 }
 
-func docInit(d *doc) {
+func docInit(d *Doc) {
 	d.propsContainer = make(map[string]interface{})
 	d.props = chillson.Son{d.propsContainer}
+}
+
+/* */
+func CreateEdge(from *Vertex, className string, to *Vertex) (e Edge) {
+	e = newEdge()
+	e.Entry.Class = className
+	e.vertex[Out] = from.Entry.Rid
+	e.vertex[In] = to.Entry.Rid
+	return
 }
 
 /* newEdge returns new Edge. From and to arguments should be RIDs of vertexes forming
 the edge. Edges by end user should be rather by creating relation between Vertex objects. */
 func newEdge() (e Edge) {
 	docInit(&e.Entry)
-	e.vertex = make(map[edgeDirection]string)
+	e.vertex = make(map[EdgeDirection]string)
 	return
 }
 
+/* NewVertex performs essential initialization for Vertex variables, which will not behave
+correctly when not created with this function. Vertex can be then uploaded to the database with
+Connection.InsertVertex method. */
 func NewVertex() (v Vertex) {
-	v.edges = make(map[edgeDirection](map[string]([]vtxRel)))
+	v.edges = make(map[EdgeDirection](map[string]([]vtxRel)))
 	v.edges[In], v.edges[Out] = make(map[string][]vtxRel), make(map[string][]vtxRel)
 	docInit(&v.Entry)
 	return v
 }
 
+// Prop extracts edge's property as {}interface (provided that it is defined for the Edge).
 func (e Edge) Prop(name string) (interface{}, error) {
 	return e.Entry.props.Get("[" + name + "]")
 }
 
+// PropStr extracts edge's property an array (Go type []interface{}) (provided that it is defined for the Edge).
 func (e Edge) PropArr(name string) ([]interface{}, error) {
 	return e.Entry.props.GetArr("[" + name + "]")
 }
 
+// PropStr extracts edge's property a float64 (provided that it is defined for the Edge).
 func (e Edge) PropFloat(name string) (float64, error) {
 	return e.Entry.props.GetFloat("[" + name + "]")
 }
 
+// PropStr extracts edge's property as int (provided that it is defined for the Edge).
 func (e Edge) PropInt(name string) (int, error) {
 	return e.Entry.props.GetInt("[" + name + "]")
 }
 
+// PropStr extracts edge's property as an object (Go type map[string]interface{}) (provided that it is defined for the Edge).
 func (e Edge) PropObj(name string) (map[string]interface{}, error) {
 	return e.Entry.props.GetObj("[" + name + "]")
 }
@@ -103,22 +124,27 @@ func (e Edge) PropStr(name string) (string, error) {
 	return e.Entry.props.GetStr("[" + name + "]")
 }
 
+// Prop extracts vertex' property as {}interface (provided that it is defined for the Vertex).
 func (v Vertex) Prop(name string) (interface{}, error) {
 	return v.Entry.props.Get("[" + name + "]")
 }
 
+// PropStr extracts vertex' property an array (Go type []interface{}) (provided that it is defined for the Vertex).
 func (v Vertex) PropArr(name string) ([]interface{}, error) {
 	return v.Entry.props.GetArr("[" + name + "]")
 }
 
+// PropStr extracts vertex' property a float64 (provided that it is defined for the Vertex).
 func (v Vertex) PropFloat(name string) (float64, error) {
 	return v.Entry.props.GetFloat("[" + name + "]")
 }
 
+// PropStr extracts vertex' property as int (provided that it is defined for the Vertex).
 func (v Vertex) PropInt(name string) (int, error) {
 	return v.Entry.props.GetInt("[" + name + "]")
 }
 
+// PropStr extracts vertex' property as an object (Go type map[string]interface{}) (provided that it is defined for the Vertex).
 func (v Vertex) PropObj(name string) (map[string]interface{}, error) {
 	return v.Entry.props.GetObj("[" + name + "]")
 }
@@ -160,19 +186,13 @@ func (v *Vertex) SetProps(a ...interface{}) error {
 	return setProps(&v.Entry.propsContainer, &v.Entry.diff, a)
 }
 
-func CreateEdge(from *Vertex, className string, to *Vertex) (e Edge) {
-	e = newEdge()
-	e.Entry.Class = className
-	e.vertex[Out] = from.Entry.Rid
-	e.vertex[In] = to.Entry.Rid
-	return
-}
-
+/* From returns Vertex when the Edge starts ("out" Vertex). Query to the database is not performed
+if this Vertex was already downloaded on a different occasion. */
 func (e *Edge) From(c *Connection) (*Vertex, error) {
 	if (*c).vertexes[e.vertex[Out]] != nil {
 		return (*c).vertexes[e.vertex[Out]], nil
 	}
-	vs, err := (*c).SelectVertexes(e.vertex[Out], 1, "", "")
+	vs, err := (*c).SelectVertexes(e.vertex[Out], 1, "")
 	if err != nil {
 		return nil, err
 	}
@@ -182,11 +202,13 @@ func (e *Edge) From(c *Connection) (*Vertex, error) {
 	return vs[0], nil
 }
 
+/* From returns Vertex when the Edge ends ("in" Vertex). Query to the database is not performed
+if this Vertex was already downloaded on a different occasion. */
 func (e *Edge) To(c *Connection) (*Vertex, error) {
 	if (*c).vertexes[e.vertex[In]] != nil {
 		return (*c).vertexes[e.vertex[In]], nil
 	}
-	vs, err := (*c).SelectVertexes(e.vertex[In], 1, "", "")
+	vs, err := (*c).SelectVertexes(e.vertex[In], 1, "")
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +218,9 @@ func (e *Edge) To(c *Connection) (*Vertex, error) {
 	return vs[0], nil
 }
 
-func (v *Vertex) Edges(dirn edgeDirection,
+/* Edges returns edges/has that given Vertex has. Query to the database is not performed if the Edges
+were already downloaded on a different occasion. */
+func (v *Vertex) Edges(dirn EdgeDirection,
 	with *Vertex,
 	className string,
 	c *Connection) (ret [](*Edge), err error) {
@@ -212,9 +236,9 @@ func (v *Vertex) Edges(dirn edgeDirection,
 	}
 	var aggregate relSliceAggregate
 	if className != "" {
-		aggregate = NewRelSliceAggregate(v.edges[dirn][className], nil)
+		aggregate = newRelSliceAggregate(v.edges[dirn][className], nil)
 	} else {
-		aggregate = NewRelSliceAggregate(nil, v.edges[dirn])
+		aggregate = newRelSliceAggregate(nil, v.edges[dirn])
 	}
 	missingRids := make([]string, 0)
 	if with == nil { // relation to any other vertex
@@ -246,7 +270,7 @@ func (v *Vertex) Edges(dirn edgeDirection,
 	if with != nil {
 		queryCond = fmt.Sprintf("WHERE %s = %s", dirn, with.Entry.Rid)
 	}
-	missingEdges, err := c.SelectEdges(queryTarget, 0, queryCond, "")
+	missingEdges, err := c.SelectEdges(queryTarget, 0, queryCond)
 	if err != nil {
 		return ret, err
 	}
