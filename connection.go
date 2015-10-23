@@ -10,6 +10,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type Connection struct {
@@ -40,7 +41,26 @@ func NewConnection(servAddr, dbName, user, pass string) (c Connection) {
 	c.Port = "2480"
 
 	c.client.Jar, _ = cookiejar.New(nil)
+	c.client.Timeout = 5 * time.Second
 	return
+}
+
+type respAndError struct {
+	resp *http.Response
+	err  error
+}
+
+// doRequest spawns a goroutine, which should do a request, and handles timeout.
+func (c *Connection) doRequest(req *http.Request) (*http.Response, error) {
+	requestDone := make(chan respAndError)
+	go func() {
+		resp, err := (*c).client.Do(req)
+		requestDone <- respAndError{resp, err}
+		return
+	}()
+	var result respAndError
+	result = <-requestDone
+	return result.resp, result.err
 }
 
 /* Command is a low-level method that performs OrientDB SQL command given in the argument. It returns ["result"] array from JSON
@@ -56,7 +76,7 @@ func (c *Connection) Command(text string) ([]interface{}, error) {
 	req.Header.Set("Accept-Encoding", "gzip,deflate")
 	req.Header.Set("Content-Length", "0")
 
-	resp, err := (*c).client.Do(req)
+	resp, err := (*c).doRequest(req)
 	buff := make([]byte, 10240)
 	p, err := io.ReadFull(resp.Body, buff)
 	if err != io.ErrUnexpectedEOF {
@@ -93,7 +113,7 @@ func (c *Connection) Connect() error {
 	}
 	req.SetBasicAuth((*c).Username, (*c).Password)
 
-	resp, err := (*c).client.Do(req)
+	resp, err := (*c).doRequest(req)
 	if err != nil {
 		return err
 	}
