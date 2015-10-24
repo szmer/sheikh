@@ -1,65 +1,84 @@
 package gorient
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"os"
+	"runtime/pprof"
 	"testing"
 )
 
 var c Connection
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+	}
+
 	c = NewConnection("localhost", "GratefulDeadConcerts", "admin", "admin")
 	err := c.Connect()
 	if err != nil {
 		fmt.Printf("Cannot connect to the database:\n%v\n", err)
 		os.Exit(1)
 	}
-	cleanFuncs := [](func() error){
-		func() error {
-			_, err := c.Command("DROP CLASS Gopher UNSAFE")
-			return err
-		},
-		func() error {
-			_, err := c.Command("DROP CLASS owes UNSAFE")
-			return err
-		},
-	}
-	prepFuncs := [](func() error){
-		func() error {
-			_, err := c.Command("CREATE CLASS Gopher EXTENDS V")
-			return err
-		},
-		func() error {
-			_, err := c.Command("CREATE PROPERTY Gopher.name string")
-			return err
-		},
-		func() error {
-			_, err := c.Command("CREATE CLASS owes EXTENDS E")
-			return err
-		},
-		func() error {
-			_, err := c.Command("CREATE PROPERTY owes.howmuch integer")
-			return err
-		},
-	}
-	for _, fn := range cleanFuncs { // run them regardless, as there may be some mess left by previous run
-		fn()
-	}
-	for _, fn := range prepFuncs {
-		if err := fn(); err != nil {
-			fmt.Printf("Test preparation failed:\n%v\n", err)
-			os.Exit(1)
+	var res int
+	for i := 0; i < 1; i++ {
+		cleanFuncs := [](func() error){
+			func() error {
+				_, err := c.Command("DROP CLASS Gopher UNSAFE")
+				return err
+			},
+			func() error {
+				_, err := c.Command("DROP CLASS owes UNSAFE")
+				return err
+			},
+		}
+		prepFuncs := [](func() error){
+			func() error {
+				_, err := c.Command("CREATE CLASS Gopher EXTENDS V")
+				return err
+			},
+			func() error {
+				_, err := c.Command("CREATE PROPERTY Gopher.name string")
+				return err
+			},
+			func() error {
+				_, err := c.Command("CREATE CLASS owes EXTENDS E")
+				return err
+			},
+			func() error {
+				_, err := c.Command("CREATE PROPERTY owes.howmuch integer")
+				return err
+			},
+		}
+		for _, fn := range cleanFuncs { // run them regardless, as there may be some mess left by previous run
+			fn()
+		}
+		for _, fn := range prepFuncs {
+			if err := fn(); err != nil {
+				fmt.Printf("Test preparation failed:\n%v\n", err)
+				os.Exit(1)
+			}
+		}
+		res = m.Run()
+		for _, fn := range cleanFuncs {
+			if err := fn(); err != nil {
+				fmt.Printf("Test cleanup failed:\n%v\n", err)
+				os.Exit(1)
+			}
 		}
 	}
-	res := m.Run()
-	for _, fn := range cleanFuncs {
-		if err := fn(); err != nil {
-			fmt.Printf("Test cleanup failed:\n%v\n", err)
-			os.Exit(1)
-		}
-	}
-	os.Exit(res)
+	defer func(res int) {
+		pprof.StopCPUProfile()
+		os.Exit(res)
+	}(res)
 }
 
 func TestVertexBasics(t *testing.T) {

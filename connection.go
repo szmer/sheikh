@@ -41,7 +41,7 @@ func NewConnection(servAddr, dbName, user, pass string) (c Connection) {
 	c.Port = "2480"
 
 	c.client.Jar, _ = cookiejar.New(nil)
-	c.client.Timeout = 5 * time.Second
+	c.client.Timeout = time.Second
 	return
 }
 
@@ -77,6 +77,9 @@ func (c *Connection) Command(text string) ([]interface{}, error) {
 	req.Header.Set("Content-Length", "0")
 
 	resp, err := (*c).doRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	buff := make([]byte, 10240)
 	p, err := io.ReadFull(resp.Body, buff)
 	if err != io.ErrUnexpectedEOF {
