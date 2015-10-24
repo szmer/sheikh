@@ -67,7 +67,8 @@ func docInit(d *Doc) {
 	d.props = chillson.Son{d.propsContainer}
 }
 
-/* */
+/* CreateEdge returns an Edge object representing relation between two vertexes of given class; edge must
+be inserted to the database before it will be accesible from vertexes' Edges method. */
 func CreateEdge(from *Vertex, className string, to *Vertex) (e Edge) {
 	e = newEdge()
 	e.Entry.Class = className
@@ -87,10 +88,11 @@ func newEdge() (e Edge) {
 /* NewVertex performs essential initialization for Vertex variables, which will not behave
 correctly when not created with this function. Vertex can be then uploaded to the database with
 Connection.InsertVertex method. */
-func NewVertex() (v Vertex) {
+func NewVertex(className string) (v Vertex) {
 	v.edges = make(map[EdgeDirection](map[string]([]vtxRel)))
 	v.edges[In], v.edges[Out] = make(map[string][]vtxRel), make(map[string][]vtxRel)
 	docInit(&v.Entry)
+	v.Entry.Class = className
 	return v
 }
 
@@ -155,7 +157,7 @@ func (v Vertex) PropStr(name string) (string, error) {
 }
 
 func setProps(container *map[string]interface{}, diff *[]string, a []interface{}) error {
-	if len(a) == 0 && len(a)%2 != 0 {
+	if len(a) == 0 || len(a)%2 != 0 {
 		return errors.New("SetProp: no arguments or odd number of arguments")
 	}
 	for i := 0; i < len(a); i += 2 {
@@ -236,7 +238,11 @@ func (v *Vertex) Edges(dirn EdgeDirection,
 	}
 	var aggregate relSliceAggregate
 	if className != "" {
-		aggregate = newRelSliceAggregate(v.edges[dirn][className], nil)
+		classIndex, ok := v.edges[dirn][className]
+		if !ok {
+			return nil, nil
+		}
+		aggregate = newRelSliceAggregate(classIndex, nil)
 	} else {
 		aggregate = newRelSliceAggregate(nil, v.edges[dirn])
 	}

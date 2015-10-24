@@ -40,7 +40,17 @@ func (c *Connection) insertEntry(entry *Doc, entryComText string) error {
 /* InsertEdge inserts given edge to the database, and assings proper RID and Version values to it.*/
 func (c *Connection) InsertEdge(e *Edge) error {
 	comText := fmt.Sprintf("CREATE EDGE %s FROM %s TO %s", (*e).Entry.Class, e.vertex[Out], e.vertex[In])
-	return c.insertEntry(&e.Entry, comText)
+	err := c.insertEntry(&e.Entry, comText)
+	if err != nil {
+		return err
+	}
+	if vtx, present := c.vertexes[e.vertex[Out]]; present {
+		vtx.edges[Out][e.Entry.Class] = append(vtx.edges[Out][e.Entry.Class], vtxRel{e.Entry.Rid})
+	}
+	if vtx, present := c.vertexes[e.vertex[In]]; present {
+		vtx.edges[In][e.Entry.Class] = append(vtx.edges[In][e.Entry.Class], vtxRel{e.Entry.Rid})
+	}
+	return nil
 }
 
 /* InsertVertex inserts given vertex to the database, and assings proper RID and Version values to it.*/
@@ -98,7 +108,7 @@ func (c *Connection) SelectEdges(target string, limit int, queryParams string) (
 	return ret, err
 }
 
-/* SelectEdges returns a slice of Vertexes from the database. Target is usually a class, but also can be RID. Pass zero or
+/* SelectVertexes returns a slice of Vertexes from the database. Target is usually a class, but also can be RID. Pass zero or
 negative limit if you don't wish to specify maximum number of rows. queryParams are added verbatim to the underlying SELECT
 query; it contain e.g. a WHERE condition. */
 func (c *Connection) SelectVertexes(target string, limit int, queryParams string) ([](*Vertex), error) {
@@ -109,7 +119,7 @@ func (c *Connection) SelectVertexes(target string, limit int, queryParams string
 	res, err := (*c).Command(comText)
 	var ret [](*Vertex)
 	for ind := range res {
-		v := NewVertex()
+		v := NewVertex("")
 		err = unpackProps(&v.Entry, res[ind]) // TODO: break on err?
 		var (                                 // for processing edges/relations when they're encountered
 			relClass string
