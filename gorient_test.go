@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	}
 	var res int
 	for i := 0; i < 1; i++ {
-		cleanFuncs := [](func() error){
+		/*cleanFuncs := [](func() error){
 			func() error {
 				_, err := c.Command("DROP CLASS Gopher UNSAFE")
 				return err
@@ -66,14 +66,14 @@ func TestMain(m *testing.M) {
 				fmt.Printf("Test preparation failed:\n%v\n", err)
 				os.Exit(1)
 			}
-		}
+		}*/
 		res = m.Run()
-		for _, fn := range cleanFuncs {
+		/*for _, fn := range cleanFuncs {
 			if err := fn(); err != nil {
 				fmt.Printf("Test cleanup failed:\n%v\n", err)
 				os.Exit(1)
 			}
-		}
+		}*/
 	}
 	defer func(res int) {
 		pprof.StopCPUProfile()
