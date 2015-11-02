@@ -22,13 +22,8 @@ func (c *Connection) DeleteVertexes(rids ...string) error {
 }
 
 func (c *Connection) insertEntry(entry *Doc, entryComText string) error {
-	specialProps := false
-	for label, prop := range (*entry).propsContainer {
-		if !specialProps {
-			entryComText += " SET "
-			specialProps = true
-		}
-		entryComText += fmt.Sprintf(" %s = %v", label, toOdbRepr(prop))
+	if len((*entry).propsContainer) > 0 {
+		entryComText += fmt.Sprintf(" CONTENT %s", toOdbRepr((*entry).propsContainer))
 	}
 	ret, err := (*c).Command(entryComText)
 	if err != nil {
