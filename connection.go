@@ -1,4 +1,4 @@
-package gorient
+package sheikh
 
 import (
 	"chillson"
@@ -16,7 +16,7 @@ import (
 type Connection struct {
 	Server, Database, Port string
 	Username, Password     string
-	client                 http.Client
+	Client                 http.Client
 	// Index of vertexes and edges received from the db (indexed by RIDs).
 	vertexes map[string](*Vertex)
 	edges    map[string](*Edge)
@@ -40,8 +40,8 @@ func NewConnection(servAddr, dbName, user, pass string) (c Connection) {
 
 	c.Port = "2480"
 
-	c.client.Jar, _ = cookiejar.New(nil)
-	c.client.Timeout = time.Second
+	c.Client.Jar, _ = cookiejar.New(nil)
+	c.Client.Timeout = 2 * time.Second
 	return
 }
 
@@ -54,7 +54,7 @@ type respAndError struct {
 func (c *Connection) doRequest(req *http.Request) (*http.Response, error) {
 	requestDone := make(chan respAndError)
 	go func() {
-		resp, err := (*c).client.Do(req)
+		resp, err := (*c).Client.Do(req)
 		requestDone <- respAndError{resp, err}
 		return
 	}()
@@ -123,7 +123,7 @@ func (c *Connection) Connect() error {
 	if resp.StatusCode != 204 {
 		return errors.New(fmt.Sprintf("Connecting to OrientDB: HTTP status %v, perhaps wrong credentials", resp.Status))
 	}
-	if cookies := (*c).client.Jar.Cookies(req.URL); len(cookies) != 1 || strings.Index(cookies[0].String(), "OSESSIONID=") == -1 {
+	if cookies := (*c).Client.Jar.Cookies(req.URL); len(cookies) != 1 || strings.Index(cookies[0].String(), "OSESSIONID=") == -1 {
 		return errors.New("Connecting to OrientDB: connection ok, but OSESSIONID cookie not present in server response, wrong address?")
 	}
 	return err // nil if all OK

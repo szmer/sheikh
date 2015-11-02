@@ -1,4 +1,4 @@
-package gorient
+package sheikh
 
 import (
 	"chillson"
@@ -31,6 +31,9 @@ func (c *Connection) insertEntry(entry *Doc, entryComText string) error {
 		entryComText += fmt.Sprintf(" %s = %v", label, toOdbRepr(prop))
 	}
 	ret, err := (*c).Command(entryComText)
+	if err != nil {
+		return err
+	}
 	chill := chillson.Son{ret}
 	(*entry).Rid, err = chill.GetStr("[0][@rid]")
 	(*entry).Version = 1
