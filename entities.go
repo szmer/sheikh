@@ -105,7 +105,7 @@ func (e Edge) RequireProp(name string) interface{} {
 	return e.Entry.props.Require("[" + name + "]")
 }
 
-// PropStr extracts edge's property an array (Go type []interface{}) (provided that it is defined for the Edge).
+// PropArr extracts edge's property an array (Go type []interface{}) (provided that it is defined for the Edge).
 func (e Edge) PropArr(name string) ([]interface{}, error) {
 	return e.Entry.props.GetArr("[" + name + "]")
 }
@@ -114,7 +114,16 @@ func (e Edge) PropRequireArr(name string) []interface{} {
 	return e.Entry.props.RequireArr("[" + name + "]")
 }
 
-// PropStr extracts edge's property a float64 (provided that it is defined for the Edge).
+// PropBool extracts edge's property as boolean (provided that it is defined for the Edge).
+func (e Edge) PropBool(name string) (bool, error) {
+	return e.Entry.props.GetBool("[" + name + "]")
+}
+
+func (e Edge) PropRequireBool(name string) bool {
+	return e.Entry.props.RequireBool("[" + name + "]")
+}
+
+// PropFloat extracts edge's property aa float64 (provided that it is defined for the Edge).
 func (e Edge) PropFloat(name string) (float64, error) {
 	return e.Entry.props.GetFloat("[" + name + "]")
 }
@@ -123,7 +132,7 @@ func (e Edge) PropRequireFloat(name string) float64 {
 	return e.Entry.props.RequireFloat("[" + name + "]")
 }
 
-// PropStr extracts edge's property as int (provided that it is defined for the Edge).
+// PropInt extracts edge's property as int (provided that it is defined for the Edge).
 func (e Edge) PropInt(name string) (int, error) {
 	return e.Entry.props.GetInt("[" + name + "]")
 }
@@ -132,7 +141,7 @@ func (e Edge) PropRequireInt(name string) int {
 	return e.Entry.props.RequireInt("[" + name + "]")
 }
 
-// PropStr extracts edge's property as an object (Go type map[string]interface{}) (provided that it is defined for the Edge).
+// PropObj extracts edge's property as an object (Go type map[string]interface{}) (provided that it is defined for the Edge).
 func (e Edge) PropObj(name string) (map[string]interface{}, error) {
 	return e.Entry.props.GetObj("[" + name + "]")
 }
@@ -159,7 +168,7 @@ func (v Vertex) PropRequire(name string) interface{} {
 	return v.Entry.props.Require("[" + name + "]")
 }
 
-// PropStr extracts vertex' property an array (Go type []interface{}) (provided that it is defined for the Vertex).
+// PropArr extracts vertex' property an array (Go type []interface{}) (provided that it is defined for the Vertex).
 func (v Vertex) PropArr(name string) ([]interface{}, error) {
 	return v.Entry.props.GetArr("[" + name + "]")
 }
@@ -168,7 +177,16 @@ func (v Vertex) PropRequireArr(name string) []interface{} {
 	return v.Entry.props.RequireArr("[" + name + "]")
 }
 
-// PropStr extracts vertex' property a float64 (provided that it is defined for the Vertex).
+// PropBool extracts edge's property as boolean (provided that it is defined for thv Vertex).
+func (v Vertex) PropBool(namv string) (bool, error) {
+	return v.Entry.props.GetBool("[" + namv + "]")
+}
+
+func (v Vertex) PropRequireBool(namv string) bool {
+	return v.Entry.props.RequireBool("[" + namv + "]")
+}
+
+// PropFloat extracts vertex' property a float64 (provided that it is defined for thv Vertex).
 func (v Vertex) PropFloat(name string) (float64, error) {
 	return v.Entry.props.GetFloat("[" + name + "]")
 }
@@ -177,7 +195,7 @@ func (v Vertex) PropRequireFloat(name string) float64 {
 	return v.Entry.props.RequireFloat("[" + name + "]")
 }
 
-// PropStr extracts vertex' property as int (provided that it is defined for the Vertex).
+// PropInt extracts vertex' property as int (provided that it is defined for the Vertex).
 func (v Vertex) PropInt(name string) (int, error) {
 	return v.Entry.props.GetInt("[" + name + "]")
 }
@@ -186,7 +204,7 @@ func (v Vertex) PropRequireInt(name string) int {
 	return v.Entry.props.RequireInt("[" + name + "]")
 }
 
-// PropStr extracts vertex' property as an object (Go type map[string]interface{}) (provided that it is defined for the Vertex).
+// PropObj extracts vertex' property as an object (Go type map[string]interface{}) (provided that it is defined for the Vertex).
 func (v Vertex) PropObj(name string) (map[string]interface{}, error) {
 	return v.Entry.props.GetObj("[" + name + "]")
 }
