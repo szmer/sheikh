@@ -124,11 +124,11 @@ func (c *Connection) SelectVertexes(target string, limit int, queryParams string
 			relDirn  EdgeDirection
 		)
 		for label, val := range v.Entry.propsContainer {
-			if label[:4] == "out_" && len(label) > 4 {
+			if len(label) > 4 && label[:4] == "out_" {
 				relClass, relDirn = label[4:], Out
 				goto ParseRelations
 			}
-			if label[:3] == "in_" && len(label) > 3 {
+			if len(label) > 3 && label[:3] == "in_" {
 				relClass, relDirn = label[3:], In
 				goto ParseRelations
 			}
