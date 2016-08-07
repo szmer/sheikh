@@ -76,9 +76,16 @@ func (c *Connection) Command(text string) ([]interface{}, error) {
 	req.Header.Set("Accept-Encoding", "gzip,deflate")
 	req.Header.Set("Content-Length", "0")
 
+	retriedAuth := false
+RetryCommand:
 	resp, err := (*c).doRequest(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode == http.StatusUnauthorized && !retriedAuth {
+		(*c).Connect()
+		retriedAuth = true
+		goto RetryCommand
 	}
 	buff := make([]byte, 10240)
 	p, err := io.ReadFull(resp.Body, buff)

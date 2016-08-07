@@ -82,7 +82,8 @@ func unpackProps(entry *Doc, origEntry interface{}) (err error) {
 negative limit if you don't wish to specify maximum number of rows. queryParams are added verbatim to the underlying SELECT
 query; it contain e.g. a WHERE condition. */
 func (c *Connection) SelectEdges(target string, limit int, queryParams string) ([](*Edge), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s", target, queryParams)
+	comText := "SELECT"
+	comText += fmt.Sprintf(" FROM %s %s", target, queryParams)
 	if limit > 1 {
 		comText += fmt.Sprintf(" LIMIT %v", limit)
 	}
@@ -110,7 +111,7 @@ func (c *Connection) SelectEdges(target string, limit int, queryParams string) (
 negative limit if you don't wish to specify maximum number of rows. queryParams are added verbatim to the underlying SELECT
 query; it contain e.g. a WHERE condition. */
 func (c *Connection) SelectVertexes(target string, limit int, queryParams string) ([](*Vertex), error) {
-	comText := fmt.Sprintf("SELECT FROM %s%s", target, " "+queryParams)
+	comText := fmt.Sprintf("SELECT FROM %s %s", target, " "+queryParams)
 	if limit > 1 {
 		comText += fmt.Sprintf(" LIMIT %v", limit)
 	}

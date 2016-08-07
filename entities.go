@@ -4,7 +4,6 @@ import (
 	"chillson"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 /*type Entity interface {
@@ -17,23 +16,26 @@ import (
 	SetProps(...interface{}) error
 }*/
 
-/* EdgeDirection can be gorient.In our gorient.Out; gorient.Both matches... both. */
+/* EdgeDirection can be In our Out; Both matches both. */
 type EdgeDirection byte
 
 const (
 	In EdgeDirection = iota
 	Out
 	Both
+	None
 )
 
 func (ed EdgeDirection) String() string {
-	if ed == In {
+	switch ed {
+	case In:
 		return "in"
-	}
-	if ed == Out {
+	case Out:
 		return "out"
+	case Both:
+		return "both"
 	}
-	return "both"
+	return "none"
 }
 
 /* Type Doc contains common object logic of Vertexes and Edges. */
@@ -238,7 +240,7 @@ func setProps(container *map[string]interface{}, diff *[]string, a []interface{}
 	return nil
 }
 
-/* SetProp takes a arbitrary number of property labels followed by their values. E.g.
+/* SetProp takes an arbitrary number of property labels followed by their values. E.g.
 SetProp("foo", "bar",  "baz", 5) assigns "bar" to "foo" property and 5 to "baz" property.
 Method performs assignment in given order, and terminates if property label is not a string.
 Arguments are not checked against schema constraints, which is left to the database. */
@@ -292,60 +294,24 @@ func (v *Vertex) Edges(dirn EdgeDirection,
 	with *Vertex,
 	className string,
 	c *Connection) (ret [](*Edge), err error) {
-	// At least for now, we handle cases with "both" directions with recurency.
-	if dirn == Both {
-		in, err := v.Edges(In, with, className, c)
-		if err != nil {
-			return in, err
-		}
-		out, err := v.Edges(Out, with, className, c)
-		ret = append(in, out...)
-		return ret, err
-	}
-	var aggregate relSliceAggregate
+	queryCond, target := "WHERE", "E"
 	if className != "" {
-		classIndex, ok := v.edges[dirn][className]
-		if !ok {
-			return nil, nil
-		}
-		aggregate = newRelSliceAggregate(classIndex, nil)
+		target = className
+	}
+	if dirn == In || dirn == Out {
+		queryCond += fmt.Sprintf(" %v = %s", dirn, v.Entry.Rid)
 	} else {
-		aggregate = newRelSliceAggregate(nil, v.edges[dirn])
+		queryCond += fmt.Sprintf(" (in = %s OR out = %s)", v.Entry.Rid, v.Entry.Rid)
 	}
-	missingRids := make([]string, 0)
-	if with == nil { // relation to any other vertex
-		for relEntry := aggregate.yield(); relEntry.edgeRid != ""; relEntry = aggregate.yield() {
-			edge := c.edges[relEntry.edgeRid]
-			if edge == nil {
-				missingRids = append(missingRids, relEntry.edgeRid)
-				continue
-			}
-			ret = append(ret, edge)
-		}
-	} else { // relation to some prescribed vertex
-		for relEntry := aggregate.yield(); relEntry.edgeRid != ""; relEntry = aggregate.yield() {
-			edge := c.edges[relEntry.edgeRid]
-			if edge == nil {
-				missingRids = append(missingRids, relEntry.edgeRid)
-				continue
-			}
-			if edge.vertex[dirn] == v.Entry.Rid {
-				ret = append(ret, edge)
-			}
-		}
-	}
-	if len(missingRids) == 0 {
-		return ret, nil
-	}
-	queryTarget := "[" + strings.Join(missingRids, ",") + "]"
-	var queryCond string
 	if with != nil {
-		queryCond = fmt.Sprintf("WHERE %s = %s", dirn, with.Entry.Rid)
+		switch dirn {
+		case In:
+			queryCond += fmt.Sprintf(" AND out = %s", with.Entry.Rid)
+		case Out:
+			queryCond += fmt.Sprintf(" AND in = %s", with.Entry.Rid)
+		default:
+			queryCond += fmt.Sprintf(" AND (in = %s OR out = %s)", with.Entry.Rid)
+		}
 	}
-	missingEdges, err := c.SelectEdges(queryTarget, 0, queryCond)
-	if err != nil {
-		return ret, err
-	}
-	ret = append(ret, missingEdges...)
-	return ret, nil
+	return c.SelectEdges(target, -1, queryCond)
 }
