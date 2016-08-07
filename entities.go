@@ -256,8 +256,7 @@ func (v *Vertex) SetProps(a ...interface{}) error {
 	return setProps(&v.Entry.propsContainer, &v.Entry.diff, a)
 }
 
-/* From returns Vertex when the Edge starts ("out" Vertex). Query to the database is not performed
-if this Vertex was already downloaded on a different occasion. */
+/* From returns Vertex when the Edge starts ("out" Vertex). */
 func (e *Edge) From(c *Connection) (*Vertex, error) {
 	if (*c).vertexes[e.vertex[Out]] != nil {
 		return (*c).vertexes[e.vertex[Out]], nil
@@ -272,8 +271,7 @@ func (e *Edge) From(c *Connection) (*Vertex, error) {
 	return vs[0], nil
 }
 
-/* From returns Vertex when the Edge ends ("in" Vertex). Query to the database is not performed
-if this Vertex was already downloaded on a different occasion. */
+/* From returns Vertex when the Edge ends ("in" Vertex). */
 func (e *Edge) To(c *Connection) (*Vertex, error) {
 	if (*c).vertexes[e.vertex[In]] != nil {
 		return (*c).vertexes[e.vertex[In]], nil
@@ -288,8 +286,7 @@ func (e *Edge) To(c *Connection) (*Vertex, error) {
 	return vs[0], nil
 }
 
-/* Edges returns edges/has that given Vertex has. Query to the database is not performed if the Edges
-were already downloaded on a different occasion. */
+/* Edges returns edges/has that given Vertex has. */
 func (v *Vertex) Edges(dirn EdgeDirection,
 	with *Vertex,
 	className string,

@@ -23,7 +23,7 @@ type Connection struct {
 }
 
 /* NewConnection returns Connection object, which should be initialized with Connect() method before
-being utilized. You have to change the port manually if you wish to:
+being used. You have to change the port manually if you wish to:
    c.Port = "8080"
 
 For example,
