@@ -1,36 +1,22 @@
 package sheikh
 
 import (
-	"flag"
 	"fmt"
-	"log"
 	"os"
-	"runtime/pprof"
 	"testing"
 )
 
 var c Connection
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func TestMain(m *testing.M) {
-	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-	}
-
 	c = NewConnection("localhost", "GratefulDeadConcerts", "admin", "admin")
 	err := c.Connect()
 	if err != nil {
 		fmt.Printf("Cannot connect to the database:\n%v\n", err)
 		os.Exit(1)
 	}
-	var res int
 	for i := 0; i < 1; i++ {
-		/*cleanFuncs := [](func() error){
+		cleanFuncs := [](func() error){
 			func() error {
 				_, err := c.Command("DROP CLASS Gopher UNSAFE")
 				return err
@@ -66,19 +52,14 @@ func TestMain(m *testing.M) {
 				fmt.Printf("Test preparation failed:\n%v\n", err)
 				os.Exit(1)
 			}
-		}*/
-		res = m.Run()
-		/*for _, fn := range cleanFuncs {
+		}
+		for _, fn := range cleanFuncs {
 			if err := fn(); err != nil {
 				fmt.Printf("Test cleanup failed:\n%v\n", err)
 				os.Exit(1)
 			}
-		}*/
+		}
 	}
-	defer func(res int) {
-		pprof.StopCPUProfile()
-		os.Exit(res)
-	}(res)
 }
 
 func TestVertexBasics(t *testing.T) {
